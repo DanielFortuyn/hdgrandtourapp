@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "741807141673",
+    "firebase_url": "https://lten-cf402.firebaseio.com",
+    "project_id": "lten-cf402",
+    "storage_bucket": "lten-cf402.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:741807141673:android:3b46b1a4ff7c346f53fd38",
+        "android_client_info": {
+          "package_name": "nl.frtn.lustrum"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "741807141673-50qukmlqc1amugcipl48qd6csh57gv71.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "nl.frtn.lustrum",
+            "certificate_hash": "54f607677854164c92dbf9ed084ac09a9e191e95"
+          }
+        },
+        {
+          "client_id": "741807141673-vlr3iscn6705e17ahn2valqv2jdqrue8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBUIH1VoO5IbR0Y6vvC2nij7bkpHNP89Ak"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "741807141673-vlr3iscn6705e17ahn2valqv2jdqrue8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
