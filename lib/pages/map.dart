@@ -76,6 +76,7 @@ class MapPageState extends State<MapPage> {
           drawer: Menu(),
           body: Consumer<LocationModel>(builder: (context, model, child) {
             fcm.setContext(context);
+            print('c18 ' + model.getAllMarkers().toString());
             GoogleMap gm = GoogleMap(
                 mapType: _mapType,
                 initialCameraPosition: _kInitial,

@@ -69,7 +69,25 @@ class LustrumApp extends StatefulWidget {
 }
 
 class _LustrumAppState extends State<LustrumApp> with WidgetsBindingObserver {
+  int _counter = 0;
+  final SocketHelper socket = SocketHelper();
+  final DeviceInfo device = DeviceInfo();
+  final Rest rest = Rest();
+  final GlobalKey<MapPageState> _mapPageState = GlobalKey<MapPageState>();
+  LocationModel _locationModel;
+  MapPage page;
 
+  @override
+  void initState() {
+     page = MapPage(
+      key: _mapPageState,
+     );
+    _locationModel = LocationModel(socket.socket, device, rest);
+    print('xxresume THIS IS RUN ON RESUME ');
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    rest.fetchTeams();
+  }
 
   @override
   void dispose() {
@@ -80,32 +98,27 @@ class _LustrumAppState extends State<LustrumApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     super.didChangeAppLifecycleState(state);
-    print("AppLifecycleState Current state = $state");
+    print("===================AppLifecycleState Current state = $state");
 
     switch (state) {
       case AppLifecycleState.inactive:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
       case AppLifecycleState.resumed:
+        setState(() {
+          print('Updating state ${_counter}');
+          rest.fetchTeams();
+          _counter++;
+        });
         break;
     }
   }
 
 
+
   Widget build (BuildContext context) {
 
-    _checkPermission();
-
-    final GlobalKey<MapPageState> _mapPageState = GlobalKey<MapPageState>();
-    MapPage page = MapPage(
-      key: _mapPageState,
-    );
-
-    final SocketHelper socket = SocketHelper();
-    final DeviceInfo device = DeviceInfo();
-    final Rest rest = Rest();
     rest.fetchTeams();
-    // LocationModel _locationModel = LocationModel(socket.socket, device, rest);
 
     void _listenToNfcTags(_mapPageState) {
       print('Starting to listen NEW PLACE!!');
@@ -131,7 +144,7 @@ class _LustrumAppState extends State<LustrumApp> with WidgetsBindingObserver {
     return MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (context) => AltModel(rest)),
-          ChangeNotifierProvider(create: (context) => LocationModel(socket.socket, device, rest)),
+          ChangeNotifierProvider(create: (context) => _locationModel),
           ChangeNotifierProvider(create: (context) => ScoreModel()),
           ChangeNotifierProvider(create: (context) => FcmModel()),
         ],
@@ -157,7 +170,8 @@ class _LustrumAppState extends State<LustrumApp> with WidgetsBindingObserver {
   }
 
   Widget openPage(context, Widget page) {
-    Provider.of<LocationModel>(context, listen: false).disposeController();
+    print('Dispose controller called.. c13');
+    // Provider.of<LocationModel>(context, listen: false).disposeController();
     return page;
   }
 }

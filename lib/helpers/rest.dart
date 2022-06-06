@@ -6,7 +6,6 @@ import "../classes/Team.dart";
 class Rest {
     List<Team> _teams;
     List<Team> get teams => _teams;
-    
 
     Rest() {
       fetchTeams().then((r) {
@@ -15,6 +14,7 @@ class Rest {
     }
     
     Future<List<Team>> fetchTeams() async {
+      print('Getting teams..');
       if(_teams == null) {
         Response response = await dio.get('/teams');
         Iterable l = response.data;

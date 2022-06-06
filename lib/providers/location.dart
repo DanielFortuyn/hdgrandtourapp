@@ -122,6 +122,15 @@ class LocationModel with ChangeNotifier {
         .listen((Position position) => _sendLocation(position));
   }
 
+  void subscribeToTeamLocationData() async {
+    print('C21 resubbing');
+    await _socket.connect();
+    print("C34" + _socket.getId());
+    _socket.sendMessage('get.location.update', jsonEncode({"hdh": "10"}));
+    _socket.subscribe('team.location.update',
+            (jsonData) => _handleTeamLocationUpdate(jsonData));
+  }
+
   void _handleMarkerPlacement(jsonData) async {
     try {
       dynamic markerData = json.decode(jsonData);
@@ -229,7 +238,7 @@ class LocationModel with ChangeNotifier {
   }
 
   void _handleTeamLocationUpdate(jsonData) {
-    print("received location update");
+    print("received location update c19");
     List<dynamic> locations = json.decode(jsonData);
     // If the call to the server was successful, parse the JSON.
     _teamLocations = [];

@@ -10,11 +10,13 @@ class Team {
 
   factory Team.fromJson(Map<String, dynamic> json)  {
 
+    print(json.toString());
+
     return Team(
       id: json['id'],
       deviceId: json['deviceId'],
       name: json['name'],
-        phase: json['phase']
+      phase: Phase.fromJson(json['Phase'])
     );
   }
 }

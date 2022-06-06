@@ -1,12 +1,12 @@
 import 'dart:ffi';
 
 class Phase {
-  final Int8 id;
+  final int id;
   final String code;
   final String message;
-  final Float lat;
-  final Float lng;
-  final Int64 range;
+  final double lat;
+  final double lng;
+  final int range;
 
   Phase({this.id, this.code, this.message, this.lat, this.lng, this.range});
 

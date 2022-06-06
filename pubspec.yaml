@@ -22,7 +22,7 @@ dependencies:
   device_info: ^2.0.3
   flutter_socket_io: "^0.6.0"
   google_maps_flutter: ">0.0.0"
-  flutter_geofence: ^0.4.2
+  flutter_geofence: ^0.4.4
   geolocator: "8.2.0"
   flutter_dotenv: ^5.0.2
   permission_handler: ^9.2.0
@@ -43,10 +43,15 @@ dependencies:
   nfc_manager: ^3.1.1
 
 dev_dependencies:
+  flutter_launcher_icons: "^0.9.2"
   flutter_test:
     sdk: flutter
 
 
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
