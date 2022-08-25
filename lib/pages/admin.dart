@@ -31,23 +31,17 @@ class AdminPageState extends State<AdminPage> {
         drawer: Menu(),
         body: Padding(
             padding: const EdgeInsets.symmetric(vertical: 50.0),
-            child: new Column(
+            child: Consumer<LocationModel>(
+                builder: (context, model, child) { return new Column(
               children: <Widget>[
                 Title(
                     title: "Admin",
-                    child: Text('title\ndofkasfk\nsdfdsa'),
+                    child: Text('Admin'),
                     color: Color.fromRGBO(0, 0, 0, 1)),
                 Center(child: TeamDropdown()),
-                Center(
-                  child: Consumer<AltModel>(builder: (context, model, child) {
-                    return Text(model.teams.map((f) => f.id).toString());
-                  }),
-                ),
                 Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
-                    child: Consumer<LocationModel>(
-                        builder: (context, model, child) {
-                      return new Row(
+                    child: new Row(
                         mainAxisSize: MainAxisSize.min, // This is the magic. :)
                         children: <Widget>[
                           new Expanded(
@@ -56,20 +50,20 @@ class AdminPageState extends State<AdminPage> {
                             textColor: Colors.white,
                             color: Colors.blue,
                             onPressed: () {
-                              model.addMarker(1);
+                              model.bumpFromAdmin();
                             }, // Button onClick function
-                            child: new Text("Button 1"),
+                            child: new Text("BP"),
                           )),
                           new Expanded(
                               child: new RaisedButton(
                             onPressed: () {
-                              model.addMarker(2);
+                              model.clearLog();
                             },
                             textColor: Colors.white,
                             color: Colors.black,
                             padding: const EdgeInsets.all(8.0),
                             child: new Text(
-                              "Button 2",
+                              "CL",
                             ),
                           )),
                           new Expanded(
@@ -97,16 +91,25 @@ class AdminPageState extends State<AdminPage> {
                             ),
                           ))
                         ],
-                      );
-                    })),
+                      )
+                    ),
                 Row(children: <Widget>[
-                  SizedBox(
-                      height: 100,
-                      width: 400,
-                      child: Text('Not in use right now'))
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      child: SingleChildScrollView(
+                          //scrollable Text - > wrap in SingleChildScrollView -> wrap that in Expanded
+                          scrollDirection: Axis.vertical,
+                          child: Text("outofoffice",
+                                  style: TextStyle(fontSize: 10),
+                                  overflow: TextOverflow.visible)
+                      )
+                  )
                 ])
               ],
-            )));
+            );
+         })
+      )
+    );
   }
 }
 
@@ -118,24 +121,30 @@ class TeamDropdown extends StatefulWidget {
 class TeamDropdownState extends State<TeamDropdown> {
   String currentTeamId = 'admin';
 
+
+
   void _getCurrentTeam(AltModel model) {
-    model.teams.forEach((f) {
-      if (model.deviceId == f.deviceId) {
-        currentTeamId = f.id;
-      }
-    });
+    if(model.teams != null) {
+      model.teams.forEach((f) {
+        if (model.deviceId == f.deviceId) {
+          currentTeamId = f.id;
+        }
+      });
+    }
   }
 
   List<DropdownMenuItem> _getItems(teams) {
     List<DropdownMenuItem> _dditems = [];
-    _dditems = teams.map<DropdownMenuItem<String>>((Team value) {
-      return DropdownMenuItem<String>(
-        value: value.id,
-        child: Text(value.name),
-      );
-    }).toList();
-    _dditems
-        .add(DropdownMenuItem<String>(child: Text('Admin'), value: 'admin'));
+    if (teams != null) {
+      _dditems = teams.map<DropdownMenuItem<String>>((Team value) {
+        return DropdownMenuItem<String>(
+          value: value.id,
+          child: Text(value.name),
+        );
+      }).toList();
+      _dditems
+          .add(DropdownMenuItem<String>(child: Text('Admin'), value: 'admin'));
+    }
     return _dditems;
   }
 

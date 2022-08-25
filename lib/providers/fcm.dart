@@ -1,3 +1,4 @@
+import 'package:lustrum/classes/LogMessage.dart';
 import 'package:lustrum/helpers/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
@@ -9,8 +10,9 @@ import 'package:lustrum/locator.dart';
 import 'package:lustrum/services/Navigation.dart';
 import 'package:lustrum/classes/Result.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:audioplayers/audioplayers.dart';
 
-import 'package:lustrum/widgets/CustomDialog.dart';
+// import 'package:lustrum/widgets/CustomDialog.dart';
 
 
 Future<dynamic> otherHandler(RemoteMessage message) async {
@@ -65,26 +67,48 @@ class FcmModel with ChangeNotifier {
 
 
   Future<dynamic> onMessageHandler(RemoteMessage message) async {
+    final player = AudioPlayer();
     print('=-=-= GOT A MESSAGExsdad -=-=-=......................................................................');
     _navigationService.navigateTo('/map');
     print("onMessage: $message");
     debugPrint("On resume fired $message");
-    _lcm.addWithCoordsMarker('Jantje', getLatLngFromMsg(message));
+
+    _lcm.addLogMessage(logMessageFromNotification(message));
+    _lcm.reloadMap();
+    player.play(AssetSource('sounds/ktis.m4a'));
+
     doShowDialog(message);
+  }
+
+  LogMessage logMessageFromNotification(RemoteMessage message) {
+    String title = 'New push message';
+    String description = 'received';
+
+    if(message.data != null) {
+      print('[n001]' + message.data.toString());
+      title = message.data['dialog.title'].toString();
+      description = message.data['dialog.content'].toString();
+    }
+
+    return new LogMessage(title, description, icon: Icons.assistant);
   }
 
   Future<dynamic> onResumeHandler(Map<String, dynamic> message) async {
     print("onResume: $message");
     debugPrint("On resume fired $message");
-    _lcm.addWithCoordsMarker('Jantje', getLatLngFromMsg(message));
+
+    _lcm.reloadMap();
+    // _lcm.addWithCoordsMarker('Jantje', getLatLngFromMsg(message));
     doShowDialog(message);
   }
 
   Future<dynamic> onLaunchHandler(Map<String, dynamic> message) async {
     debugPrint(
         "[onLaunch] triggered for: " + message['data']['google.message_id']);
-    _lcm.addWithCoordsMarker('Jantje', getLatLngFromMsg(message));
+    // _lcm.addWithCoordsMarker('Jantje', getLatLngFromMsg(message));
+    _lcm.reloadMap();
     doShowDialog(message);
+
   }
 
   LatLng getLatLngFromMsg(message) {
@@ -113,7 +137,7 @@ class FcmModel with ChangeNotifier {
     return showDialog(
         context: context,
         builder: (context) {
-          return new CustomDialog(data: data);
+          // return new CustomDialog(data: data);
         });
   }
 

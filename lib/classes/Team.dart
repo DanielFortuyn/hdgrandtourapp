@@ -9,14 +9,17 @@ class Team {
   Team({this.id, this.deviceId, this.name, this.phase});
 
   factory Team.fromJson(Map<String, dynamic> json)  {
+    Phase phase;
 
-    print(json.toString());
+    if(json['Phase'] != null) {
+      phase = Phase.fromJson(json['Phase']);
+    }
 
     return Team(
       id: json['id'],
       deviceId: json['deviceId'],
       name: json['name'],
-      phase: Phase.fromJson(json['Phase'])
+      phase: phase
     );
   }
 }

@@ -6,12 +6,16 @@ import 'package:nfc_manager/nfc_manager.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:nfc_manager/platform_tags.dart';
 import 'package:provider/provider.dart';
+import 'package:wakelock/wakelock.dart';
+import 'package:kiosk_mode/kiosk_mode.dart';
+
 import './pages/admin.dart';
 import './pages/map.dart';
 import './pages/stand.dart';
 import './pages/test.dart';
 import './pages/event.dart';
 import './pages/code.dart';
+import './pages/log.dart';
 
 import './providers/alt.dart';
 import './providers/location.dart';
@@ -26,6 +30,8 @@ import "./helpers/rest.dart";
 import "./services/Navigation.dart";
 import "./locator.dart";
 
+import 'package:flutter_geofence/geofence.dart';
+
 void main() async {
   // Set `enableInDevMode` to true to see reports while in debug mode
   // This is only to be used for confirming that reports are being
@@ -36,10 +42,12 @@ void main() async {
   await dotenv.load(fileName: ".env");
   await Firebase.initializeApp();
   await _checkPermission();
-
+  Wakelock.enable();
+  startKioskMode();
+  Geofence.initialize();
+  Geofence.requestPermissions();
   // Pass all uncaught errors from the framework to Crashlytics.
   runApp(LustrumApp());
-
 }
 
 Future<void> _checkPermission() async {
@@ -70,23 +78,29 @@ class LustrumApp extends StatefulWidget {
 
 class _LustrumAppState extends State<LustrumApp> with WidgetsBindingObserver {
   int _counter = 0;
-  final SocketHelper socket = SocketHelper();
   final DeviceInfo device = DeviceInfo();
-  final Rest rest = Rest();
   final GlobalKey<MapPageState> _mapPageState = GlobalKey<MapPageState>();
+  Rest rest;
   LocationModel _locationModel;
   MapPage page;
 
   @override
   void initState() {
-     page = MapPage(
-      key: _mapPageState,
-     );
-    _locationModel = LocationModel(socket.socket, device, rest);
-    print('xxresume THIS IS RUN ON RESUME ');
+    print("c00 init state was run");
+    createInstance();
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     rest.fetchTeams();
+  }
+
+  void createInstance() {
+    print("c001 createinstance was run");
+    page = MapPage(
+      key: _mapPageState,
+    );
+    rest = Rest();
+    // SocketHelper socket = SocketHelper();
+    _locationModel = LocationModel(device, rest);
   }
 
   @override
@@ -105,41 +119,30 @@ class _LustrumAppState extends State<LustrumApp> with WidgetsBindingObserver {
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
       case AppLifecycleState.resumed:
-        setState(() {
-          print('Updating state ${_counter}');
-          rest.fetchTeams();
-          _counter++;
-        });
         break;
     }
   }
 
-
-
   Widget build (BuildContext context) {
-
     rest.fetchTeams();
+    // void _listenToNfcTags(_mapPageState) {
+    //   print('Starting to listen NEW PLACE!!');
+    //   NfcManager.instance.startSession(onDiscovered: (NfcTag tag) async {
+    //     print('FOUND TAG ============ XDASPDSD');
+    //     Ndef ndef = Ndef.from(tag);
+    //     if (ndef == null) {
+    //        print('Tag is not compatible with NDEF');
+    //        return;
+    //     }
+    //     final message = ndef.cachedMessage;
+    //     final payload = message?.records[0].payload ?? const Iterable<int>.empty();
+    //     final payloadStr = String.fromCharCodes(payload);
+    //     NdefFormatable _ndef = NdefFormatable.from(tag);
+    //     _mapPageState.currentState.callThisOnChild(payloadStr);
+    //   });
+    // }
 
-    void _listenToNfcTags(_mapPageState) {
-      print('Starting to listen NEW PLACE!!');
-      NfcManager.instance.startSession(onDiscovered: (NfcTag tag) async {
-        print('FOUND TAG ============ XDASPDSD');
-        Ndef ndef = Ndef.from(tag);
-        if (ndef == null) {
-           print('Tag is not compatible with NDEF');
-           return;
-        }
-        final message = ndef.cachedMessage;
-        final payload = message?.records[0].payload ?? const Iterable<int>.empty();
-        final payloadStr = String.fromCharCodes(payload);
-        NdefFormatable _ndef = NdefFormatable.from(tag);
-        _mapPageState.currentState.callThisOnChild(payloadStr);
-      });
-    }
-
-    _listenToNfcTags(_mapPageState);
-
-
+    // _listenToNfcTags(_mapPageState);
 
     return MultiProvider(
         providers: [
@@ -159,17 +162,22 @@ class _LustrumAppState extends State<LustrumApp> with WidgetsBindingObserver {
             initialRoute: '/map',
             routes: {
               '/map': (context) => openPage(
-                  context, page
+                  context, page, true
                   ),
-              '/admin': (context) => openPage(context, AdminPage()),
-              '/stand': (context) => openPage(context, StandPage()),
-              '/test': (context) => openPage(context, TestPage()),
-              '/event': (context) => openPage(context, EventPage()),
-              '/code': (context) => openPage(context, CodePage())
+              '/admin': (context) => openPage(context, AdminPage(),false),
+              '/stand': (context) => openPage(context, StandPage(), false),
+              '/log': (context) => openPage(context, LogPage(), false),
+              '/test': (context) => openPage(context, TestPage(), false),
+              '/event': (context) => openPage(context, EventPage(), false),
+              '/code': (context) => openPage(context, CodePage(), false)
             }));
   }
 
-  Widget openPage(context, Widget page) {
+  Widget openPage(context, Widget page, bool atMap) {
+    _locationModel.setMapVisible(atMap);
+    if(atMap) {
+      _locationModel.handlePlacePhase();
+    }
     print('Dispose controller called.. c13');
     // Provider.of<LocationModel>(context, listen: false).disposeController();
     return page;

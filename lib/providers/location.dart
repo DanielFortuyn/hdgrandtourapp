@@ -6,26 +6,53 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_android/geolocator_android.dart';
-import 'package:flutter_geofence/Geolocation.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_geofence/geofence.dart';
-import 'package:flutter_socket_io/flutter_socket_io.dart';
+import 'package:lustrum/classes/PhaseConfigCirlce.dart';
+import 'package:lustrum/helpers/socket.dart';
 import '../classes/TeamLocation.dart';
 import '../classes/Team.dart';
+import '../classes/Phase.dart';
+import '../classes/LogMessage.dart';
 
 import '../helpers/device.dart';
 import '../helpers/rest.dart';
+import '../helpers/hexcolor.dart';
 
 import 'dart:math';
 
+import 'package:kiosk_mode/kiosk_mode.dart';
+import 'package:audioplayers/audioplayers.dart';
+
 class LocationModel with ChangeNotifier {
-  SocketIO _socket;
+  SocketHelper _socket;
   DeviceInfo _deviceInfo = new DeviceInfo();
   AndroidDeviceInfo deviceInfo;
+  int _currentPhaseId;
+  int get currentPhaseId => _currentPhaseId;
+  final player = AudioPlayer();
   String _deviceId;
+  String get deviceId => _deviceId;
   Rest _rest;
-
+  Set<Circle> _soc = new Set<Circle>();
+  Set<Circle> get soc => _soc;
   List<TeamLocation> _teamLocations = [];
   List<TeamLocation> get teamLocations => _teamLocations;
+
+  String adminDeviceId = '909ff9f4b47d9068';
+
+  bool _mapVisible = false;
+  void setMapVisible(bool visible) {
+    _mapVisible = visible;
+  }
+
+  List<LogMessage> _logMessages = [];
+  List<LogMessage> get logMessages => _logMessages;
+
+
+  MapType _mapType = MapType.normal;
+  MapType get mapType => _mapType;
+  bool _iso = false;
 
   Map<MarkerId, Marker> _destinationMarkers = {};
   Map<MarkerId, Marker> get destinationMarkers => _destinationMarkers;
@@ -35,83 +62,56 @@ class LocationModel with ChangeNotifier {
 
   String snackTest = '';
   bool showSnack = false;
-
   GoogleMapController controller;
 
   Timer sendGetLocationTimer;
   LocationSettings locationSettings;
+  Geolocation location;
 
+  int _newMessages = 0;
+  int get newMessages => _newMessages;
 
-  LocationModel(socket, device, Rest rest) {
-    print("[LOCATION_INSTANCE] Creating a new instance of the location model");
+  void setNewMessages() {
+    _newMessages = 0;
+  }
 
-    print("[LOAD] Geofence");
-    Geofence.initialize();
-    Geofence.requestPermissions();
-    Geofence.startListening(GeolocationEvent.entry, (entry) {
-      print('[GEO] In');
-      print("Entry of a georegion" + "Welcome to: ${entry.id}");
-      addMarker(1);
+  void addLogMessage(LogMessage _logMsg) {
+    _newMessages++;
+    _logMessages.insert(0, _logMsg);
+  }
+
+  LocationModel(device, Rest rest) {
+    _deviceInfo.fetchInfo().then((adi) {
+      _deviceId = adi.androidId;
     });
 
-    Geofence.startListening(GeolocationEvent.exit, (entry) {
-      print('[GEO] Exit');
-      print("Exit of a georegion" + "Byebye to: ${entry.id}");
-      addMarker(1);
+    addLogMessage(
+        LogMessage("Initialized", "The location lib has been initialized for: " + currentPhaseId.toString(), icon: Icons.build));
+    _newMessages--;
 
-    });
-
-    Geolocation location = Geolocation(
-        latitude: 52.168094,
-        longitude: 4.584889,
-        radius: 400.0,
-        id: "Kerkplein13");
-
-    Geolocation _location = Geolocation(
-        latitude: 52.145131,
-        longitude: 4.486045,
-        radius: 400.0,
-        id: "Case del pensveen"
-    );
-    Geofence.addGeolocation(location, GeolocationEvent.entry)
-        .then((onValue) {
-      print("great success");
-      print("[LOAD] added" + " Your geofence has been added!");
-    }).catchError((onError) {
-      print("great failure");
-    });
-
-    Geofence.addGeolocation(_location, GeolocationEvent.entry)
-        .then((onValue) {
-      print("great success");
-      print("[LOAD] added" + " Your geofence has been added!");
-    }).catchError((onError) {
-      print("great failure");
-    });
-
-
+    SocketHelper _socket = new SocketHelper();
     _rest = rest;
-    _socket = socket;
-    _socket.subscribe('team.location.update',
+    _rest.fetchTeams();
+
+    _socket.socket.on('team.location.update',
         (jsonData) => _handleTeamLocationUpdate(jsonData));
 
-    _socket.subscribe(
+    _socket.socket.on(
         'place.finish.marker', (jsonData) => _handleMarkerPlacement(jsonData));
 
-    _socket.sendMessage('get.location.update', jsonEncode({"hdh": "10"}));
+    _socket.socket.emit('get.location.update', jsonEncode({"hdh": "10"}));
     sendGetLocationTimer = setGetLocationTimer();
 
     locationSettings = AndroidSettings(
         accuracy: LocationAccuracy.best,
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationText:
-          "Lustrum 2022 will continue to receive your location even when you aren't using it",
+              "HD Grand Tour 2022 will continue to receive your location even when you aren't using it",
           notificationTitle: "Running in Background",
           enableWakeLock: true,
-        )
-    );
+        ));
 
-    //Get inital position
+    //Get initial position
     Geolocator.getCurrentPosition(
             forceAndroidLocationManager: true,
             desiredAccuracy: LocationAccuracy.best)
@@ -120,15 +120,167 @@ class LocationModel with ChangeNotifier {
     //Keep track of updates
     Geolocator.getPositionStream(locationSettings: locationSettings)
         .listen((Position position) => _sendLocation(position));
+
+    _handlePlacePhase();
   }
 
-  void subscribeToTeamLocationData() async {
-    print('C21 resubbing');
-    await _socket.connect();
-    print("C34" + _socket.getId());
-    _socket.sendMessage('get.location.update', jsonEncode({"hdh": "10"}));
-    _socket.subscribe('team.location.update',
-            (jsonData) => _handleTeamLocationUpdate(jsonData));
+  void manualSubmit() {
+    addLogMessage(LogMessage(
+        "Manually submitted location", "",
+        icon: Icons.add_task, level: 1));
+    _rest.processManualSubmit(_deviceId).then((value) => handlePlacePhase());
+  }
+
+  void reloadMap() {
+    print('xx[115] got reload map from push message');
+    _handlePlacePhase();
+  }
+
+  void clearLog() {
+    _logMessages.clear();
+  }
+
+  void toggleIso() {
+    _iso = !_iso;
+    print('[i100] Toggleing iso' + _iso.toString());
+  }
+
+  void resetPhase() {
+    _rest.updatePhase(_deviceId, "20").then((value) => _handlePlacePhase());
+  }
+
+  void bumpFromAdmin() {
+    Team team = _rest.getTeamByDeviceId(_deviceId);
+    Phase phase = team.phase;
+    player.play(AssetSource('kei.m4a'));
+    _rest
+        .updatePhase(_deviceId, phase.code.toString())
+        .then((value) => _handlePlacePhase());
+  }
+
+  void handleCode(code) {
+    print('[p319] code processing');
+    if(code == 'stopkiosk') {
+      stopKioskMode();
+    }
+    if(code == 'upupdowndownleftrightleftrightba') {
+      _rest.processCode(_deviceId, code).then((value) => handlePlacePhase());
+    }
+    _rest.processCode(_deviceId, code).then((value) => handlePlacePhase());
+  }
+
+  void handlePlacePhase() async {
+    await _handlePlacePhase();
+  }
+
+  void _removeEverything() async {
+    _destinationMarkers.clear();
+    _soc.clear();
+    await Geofence.removeAllGeolocations();
+    addLogMessage(LogMessage('Everything removed', 'Map was cleared..'));
+  }
+
+  void setMapTypeFromPhase(Phase phase) {
+      if(phase.mapType == 'none') {
+        _mapType = MapType.none;
+      }
+      if(phase.mapType == 'normal') {
+        _mapType = MapType.normal;
+      }
+      if(phase.mapType == 'hybrid') {
+        _mapType = MapType.hybrid;
+      }
+      if(phase.isoMode != null) {
+        _iso = ! !phase.isoMode;
+      }
+  }
+
+  void _handlePlacePhase() async {
+
+    await _rest.fetchTeams();
+    Team team = _rest.getTeamByDeviceId(_deviceId);
+    if(team.phase != null) {
+      _currentPhaseId = team.phase.id;
+    }
+
+    await _removeEverything();
+    if(team.phase != null && team.phase.marker != '0') {
+      Phase phase = team.phase;
+      print('c1001' + phase.marker + ' ' + phase.range.toString());
+      setMapTypeFromPhase(phase);
+
+      if(phase.marker != 'hidden') {
+        addMarker(phase.id, phase.lat, phase.lng);
+      }
+      if(phase.range.toInt() > 0) {
+        _placeGeofenseFromPhase(phase);
+        print('c1111 placing circle ' + phase.marker);
+        if(phase.marker == 'circle') {
+          print('c1112 placing circle for real');
+          _placeCircleFromPhase(phase);
+        }
+      }
+      _currentPhaseId = phase.id;
+    }
+    notifyListeners();
+  }
+  void _placeCircleFromPhase(Phase phase) {
+      PhaseConfigCircle pcc;
+      Color fill = Color(0x339911BB);
+      Color stroke = Color(0xAA1111BB);
+      int strokeSize = 3;
+
+      if(phase.config != null && phase.config.circle != null) {
+        pcc = phase.config.circle;
+        if(pcc.stroke != null) {
+          if(pcc.stroke.color != null) {
+            stroke = HexColor(pcc.stroke.color);
+          }
+          if(pcc.stroke.size != null) {
+            strokeSize = pcc.stroke.size;
+          }
+        }
+        if(pcc.color != null) {
+          fill = HexColor(pcc.color);
+        }
+      }
+
+      Circle c = Circle(
+          circleId: CircleId(phase.id.toString()),
+          fillColor: fill,
+          strokeWidth: strokeSize,
+          strokeColor: stroke,
+          center: LatLng(phase.lat, phase.lng),
+          radius: phase.range
+      );
+
+      _soc.add(c);
+  }
+  void _placeGeofenseFromPhase(Phase phase) {
+    location = Geolocation(
+        latitude: phase.lat,
+        longitude: phase.lng,
+        radius: phase.range,
+        id: "Phase-" + phase.id.toString());
+
+      print( "[l123]" + location.toString());
+      Geofence.addGeolocation(location, GeolocationEvent.entry).then((onValue) {
+          // if(phase.id != currentPhaseId) {
+            addLogMessage(LogMessage(
+                "Added a new location ${phase.id}", phase.message,
+                icon: Icons.add_task, level: 1));
+          // }
+      }).catchError((onError) {
+        print("great failure");
+      });
+
+    Geofence.startListening(GeolocationEvent.entry, (entry) {
+      addLogMessage(LogMessage("Entered geofence", "You entered ${entry.id}", level: 1));
+      player.play(AssetSource('sounds/kei.m4a'));
+      _rest
+          .updatePhase(_deviceId, entry.id)
+          .then((value) => _handlePlacePhase());
+    });
   }
 
   void _handleMarkerPlacement(jsonData) async {
@@ -163,7 +315,7 @@ class LocationModel with ChangeNotifier {
   Timer setGetLocationTimer() {
     return Timer(Duration(seconds: 10), () {
       print("Get location fired");
-      _socket.sendMessage('get.location.update', jsonEncode({"hdh": "10"}));
+      _socket.socket.emit('get.location.update', jsonEncode({"hdh": "10"}));
       sendGetLocationTimer = setGetLocationTimer();
     });
   }
@@ -177,14 +329,19 @@ class LocationModel with ChangeNotifier {
     _deviceId = deviceInfo.androidId;
     List<Team> _teams = await _rest.fetchTeams();
 
+    if (_socket == null) {
+      print('c002 reconnecting socket');
+      _socket = new SocketHelper();
+    }
+
+    print('c0003 ' + _deviceId);
+
     if (_deviceId != null && _deviceIsOfTeam(_teams, _deviceId)) {
-      _socket.sendMessage(
-          'post.location.update',
-          json.encode({
-            'lat': position.latitude,
-            'lng': position.longitude,
-            'deviceId': _deviceId,
-          }));
+      _socket.socket.emit('post.location.update', {
+        'lat': position.latitude,
+        'lng': position.longitude,
+        'deviceId': _deviceId,
+      });
     }
   }
 
@@ -201,11 +358,9 @@ class LocationModel with ChangeNotifier {
         ImageConfiguration(size: Size(16, 16)), image);
   }
 
-  addMarker(id) async {
+  addMarker(id, lat, lng) async {
     final _random = new Random();
-    final l = (_random.nextInt(5) - 2.5) + id;
-    final p = (_random.nextInt(5) - 2.5) + id;
-    await addWithCoordsMarker(id.toString(), LatLng(50 + l, 10 + p));
+    await addWithCoordsMarker(id.toString(), LatLng(lat, lng));
   }
 
   addWithCoordsMarker(String id, LatLng latLng) async {
@@ -239,7 +394,8 @@ class LocationModel with ChangeNotifier {
 
   void _handleTeamLocationUpdate(jsonData) {
     print("received location update c19");
-    List<dynamic> locations = json.decode(jsonData);
+    // print(json.decode(jsonData));
+    List<dynamic> locations = jsonData;
     // If the call to the server was successful, parse the JSON.
     _teamLocations = [];
     locations.forEach((item) async {
@@ -250,6 +406,7 @@ class LocationModel with ChangeNotifier {
   }
 
   void _updateMarkers() async {
+    print('c91 updating markers');
     for (var _loc in _teamLocations) {
       MarkerId _markerId = MarkerId(_loc.deviceId);
       final Marker marker = Marker(
@@ -260,7 +417,15 @@ class LocationModel with ChangeNotifier {
           _onMarkerTapped(_markerId);
         },
       );
-      _teamMarkers[_markerId] = marker;
+      if (_iso) {
+        if (_loc.deviceId == _deviceId) {
+          _teamMarkers[_markerId] = marker;
+        } else {
+          _teamMarkers.remove(_markerId);
+        }
+      } else {
+        _teamMarkers[_markerId] = marker;
+      }
     }
     _updateCamera();
     notifyListeners();
@@ -291,22 +456,30 @@ class LocationModel with ChangeNotifier {
     _updateCamera();
   }
 
+  void _setMapType(MapType mapType) {
+    if (_mapType == mapType) {
+      _mapType = MapType.normal;
+    } else {
+      _mapType = mapType;
+    }
+  }
+
   void _updateCamera() async {
     List<LatLng> list = [];
     Map<MarkerId, Marker> _ckers = getAllMarkers();
-
-    if (_ckers.length > 0) {
-      _ckers.forEach((k, v) {
-        list.add(LatLng(v.position.latitude, v.position.longitude));
-      });
-      if (controller != null) {
-        controller.getVisibleRegion().then((f) {
-          controller.animateCamera(
-              CameraUpdate.newLatLngBounds(boundsFromLatLngList(list), 50));
+    if(_mapVisible) {
+      if (_ckers.length > 0) {
+        _ckers.forEach((k, v) {
+          list.add(LatLng(v.position.latitude, v.position.longitude));
         });
-      } else {
-        print("Controller is null");
+            controller.getVisibleRegion().then((f) {
+              controller.animateCamera(
+                  CameraUpdate.newLatLngBounds(boundsFromLatLngList(list), 50));
+            });
+        } else {
+          print("Controller is null");
+        }
       }
     }
   }
-}
+

@@ -41,17 +41,9 @@ class MapPageState extends State<MapPage> {
         },
       ),
     );
-    LocationModel _lm = Provider.of<LocationModel>(context, listen: false);
-    _lm.addMarker(1);
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
-  }
-
-  void _setMapType(MapType mapType) {
-    if (_mapType == mapType) {
-      _mapType = MapType.normal;
-    } else {
-      _mapType = mapType;
-    }
+    // LocationModel _lm = Provider.of<LocationModel>(context, listen: false);
+    // _lm.addMarker(1);
+    // ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   static final CameraPosition _kInitial = CameraPosition(
@@ -63,14 +55,6 @@ class MapPageState extends State<MapPage> {
   Widget build(BuildContext context) {
     FcmModel fcm = Provider.of<FcmModel>(context);
 
-    Set<Circle> circles = Set.from([Circle(
-      circleId: CircleId('first'),
-      fillColor: Color(0x33FF00BB),
-      strokeWidth: 3,
-      strokeColor: Color(0xAAFF00BB),
-      center: LatLng(52.168094,4.584889),
-      radius: 400
-    )]);
     return new GestureDetector(
         child: Scaffold(
           drawer: Menu(),
@@ -78,33 +62,37 @@ class MapPageState extends State<MapPage> {
             fcm.setContext(context);
             print('c18 ' + model.getAllMarkers().toString());
             GoogleMap gm = GoogleMap(
-                mapType: _mapType,
-                initialCameraPosition: _kInitial,
-                onMapCreated: (GoogleMapController controller) {
-                  _controller = controller;
-                  model.setController(_controller);
-                  model.updateCamera();
-                },
-                onTap: (tap) {
-                  print('[Tap]' + _controller.toString());
+              mapType: model.mapType,
+              initialCameraPosition: _kInitial,
+              onMapCreated: (GoogleMapController controller) {
+                _controller = controller;
+                model.setController(_controller);
+                model.updateCamera();
+              },
+              onTap: (tap) {
+                print('[Tap]' + _controller.toString());
 
-                  model.setController(_controller);
-                },
-                myLocationButtonEnabled: false,
-                //Dit moet uit het model komen zodat de widget stateless kan worden, nu issues door states in beide dingen...
-                markers: Set<Marker>.of(model.getAllMarkers().values),
-                circles: circles,
+                model.setController(_controller);
+              },
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              //Dit moet uit het model komen zodat de widget stateless kan worden, nu issues door states in beide dingen...
+              markers: Set<Marker>.of(model.getAllMarkers().values),
+              circles: Set<Circle>.of(model.soc),
             );
 
             return gm;
           }),
-          // floatingActionButton: FloatingActionButton.extended(
-          //     onPressed: () => _addTargetMarker(),
-          //     label: Icon(Icons.directions_boat))
+          floatingActionButton:
+              Consumer<LocationModel>(builder: (context, model, child) {
+            return FloatingActionButton.extended(
+                onPressed: model.toggleIso,
+                label: Icon(Icons.directions_boat));
+          }),
         ),
         onLongPress: () {
           setState(() {
-            _setMapType(MapType.none);
+            // _setMapType(MapType.none);
           });
         });
   }
