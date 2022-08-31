@@ -11,7 +11,14 @@ class Rest {
   List<Team> _teams;
   List<Team> get teams => _teams;
 
-  Rest() {
+
+  static final Rest _singleton = Rest._internal();
+  factory Rest() => _singleton;
+  Rest._internal() {
+    init();
+  }
+
+  void init() {
     fetchTeams().then((r) {
       _teams = r;
     });
@@ -61,7 +68,7 @@ class Rest {
   Future<Team> processManualSubmit(String deviceId) async {
     print("[p104] process code phase");
     try {
-      var result = await dio.post('/manualsubmit', data: {'deviceId': deviceId });
+      var result = await dio.post('/manual', data: {'deviceId': deviceId });
       if(result.statusCode == 204 || result.statusCode == 200) {
         print("[a] playing keigoed");
         player.play(AssetSource('sounds/kei.m4a'));
@@ -79,8 +86,8 @@ class Rest {
     return _teams;
   }
 
-  Team getTeamByDeviceId(String deviceId) {
-    print("=====>DeviceId: " + deviceId);
+  Future<Team> getTeamByDeviceId(String deviceId) async {
+    _teams = await this.fetchTeams();
     for (var i = 0; i < _teams.length; i++) {
       if (_teams[i].deviceId == deviceId) {
         return _teams[i];

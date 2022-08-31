@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:lustrum/classes/LogMessage.dart';
 import 'package:lustrum/helpers/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -7,13 +9,15 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:lustrum/locator.dart';
+import 'dart:async';
 import 'package:lustrum/services/Navigation.dart';
 import 'package:lustrum/classes/Result.dart';
+import 'package:device_info/device_info.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 // import 'package:lustrum/widgets/CustomDialog.dart';
-
+import '../helpers/device.dart';
 
 Future<dynamic> otherHandler(RemoteMessage message) async {
   print('Background message received');
@@ -22,14 +26,17 @@ Future<dynamic> otherHandler(RemoteMessage message) async {
 class FcmModel with ChangeNotifier {
   static final FcmModel _singleton = FcmModel._internal();
   factory FcmModel() => _singleton;
-
   FcmModel._internal() {
     init();
   }
 
+  DeviceInfo _deviceInfo = new DeviceInfo();
+
   LocationModel _lcm;
   BuildContext context;
   List<String> _handledMessageIds = [];
+  Timer countdownTimer;
+  Duration myDuration = Duration(seconds: 6);
 
   FirebaseMessaging _fcm = FirebaseMessaging.instance;
   final NavigationService _navigationService = locator<NavigationService>();
@@ -49,8 +56,13 @@ class FcmModel with ChangeNotifier {
     _lcm = locationModel;
   }
 
-  void subscribeToTopics() {
-    _fcm.subscribeToTopic('updates');
+  void subscribeToTopics() async {
+     await _deviceInfo.fetchInfo();
+
+      var topic = 'device.' + _deviceInfo.deviceId.toString();
+      print(topic);
+      _fcm.subscribeToTopic(topic);
+      _fcm.subscribeToTopic('updates');
   }
 
   void registerHandlers() {
@@ -69,7 +81,7 @@ class FcmModel with ChangeNotifier {
   Future<dynamic> onMessageHandler(RemoteMessage message) async {
     final player = AudioPlayer();
     print('=-=-= GOT A MESSAGExsdad -=-=-=......................................................................');
-    _navigationService.navigateTo('/map');
+    _navigationService.navigateTo('/');
     print("onMessage: $message");
     debugPrint("On resume fired $message");
 
@@ -77,8 +89,9 @@ class FcmModel with ChangeNotifier {
     _lcm.reloadMap();
     player.play(AssetSource('sounds/ktis.m4a'));
 
-    doShowDialog(message);
+    // doShowDialog(message);
   }
+
 
   LogMessage logMessageFromNotification(RemoteMessage message) {
     String title = 'New push message';
@@ -141,34 +154,57 @@ class FcmModel with ChangeNotifier {
         });
   }
 
+  void cancelTimer(context) async {
+    await countdownTimer.cancel();
+    Navigator.pop(context);
+  }
+
   void doShowDialog(message) {
     if (context != null) {
-      if (message['notification']['title'] == 'image') {
-        doShowCustomDialog(message);
-      } else {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            content: ListTile(
-              title: Text('Launch'),
-              subtitle: Text('Launch'),
-            ),
-            actions: <Widget>[
-              FlatButton(
-                color: Colors.blue,
-                child: Text('Ok'),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-              FlatButton(
-                color: Colors.red,
-                child: Text('Ok'),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-        );
-      }
+      String strDigits(int n) => n.toString().padLeft(2, '0');
+
+      // showDialog(
+      //     context: context,
+      //     barrierDismissible: false,
+      //     builder: (context) {
+      //         String strDigits(int n) => n.toString().padLeft(2, '0');
+      //         return StatefulBuilder(
+      //           builder: (context, setState) {
+      //
+      //             String hours;
+      //             String minutes;
+      //             String seconds = strDigits(myDuration.inSeconds.remainder(60));
+      //
+      //
+      //           return AlertDialog(
+      //             title: Text("Under Attack"),
+      //             content: Column(
+      //               children: [
+      //                 Text('Blauw schild'),
+      //                 Text(
+      //                   '$hours:$minutes:$seconds',
+      //                   style: TextStyle(
+      //                       fontWeight: FontWeight.bold,
+      //                       color: Colors.black,
+      //                       fontSize: 50),
+      //                 ),
+      //               ],
+      //             ),
+      //             actions: <Widget>[
+      //               FlatButton(
+      //                 onPressed: () => Navigator.pop(context),
+      //                 child: Text("Cancel"),
+      //               ),
+      //               FlatButton(
+      //                 onPressed: () {
+      //                 },
+      //                 child: Text("Change"),
+      //               ),
+      //             ],
+      //           );
+      //         },
+      //       );
+      //     });
     } else {
       print("context is null");
     }

@@ -33,11 +33,15 @@ class LocationModel with ChangeNotifier {
   final player = AudioPlayer();
   String _deviceId;
   String get deviceId => _deviceId;
+
   Rest _rest;
   Set<Circle> _soc = new Set<Circle>();
   Set<Circle> get soc => _soc;
   List<TeamLocation> _teamLocations = [];
   List<TeamLocation> get teamLocations => _teamLocations;
+
+  Phase _currentPhase;
+  Phase get currentPhase => _currentPhase;
 
   String adminDeviceId = '909ff9f4b47d9068';
 
@@ -48,7 +52,6 @@ class LocationModel with ChangeNotifier {
 
   List<LogMessage> _logMessages = [];
   List<LogMessage> get logMessages => _logMessages;
-
 
   MapType _mapType = MapType.normal;
   MapType get mapType => _mapType;
@@ -80,18 +83,25 @@ class LocationModel with ChangeNotifier {
     _logMessages.insert(0, _logMsg);
   }
 
-  LocationModel(device, Rest rest) {
-    _deviceInfo.fetchInfo().then((adi) {
-      _deviceId = adi.androidId;
-    });
+  static final LocationModel _singleton = LocationModel._internal();
+  factory LocationModel() => _singleton;
+  LocationModel._internal() {
+    init();
+  }
 
-    addLogMessage(
-        LogMessage("Initialized", "The location lib has been initialized for: " + currentPhaseId.toString(), icon: Icons.build));
-    _newMessages--;
+
+  void init() {
+    _rest = new Rest();
+    final DeviceInfo _deviceInfo = DeviceInfo();
+
+    // addLogMessage(LogMessage(
+    //     "Initialized",
+    //     "The location lib has been initialized for: " +
+    //         _deviceId,
+    //     icon: Icons.build));
+    // _newMessages--;
 
     SocketHelper _socket = new SocketHelper();
-    _rest = rest;
-    _rest.fetchTeams();
 
     _socket.socket.on('team.location.update',
         (jsonData) => _handleTeamLocationUpdate(jsonData));
@@ -125,10 +135,11 @@ class LocationModel with ChangeNotifier {
   }
 
   void manualSubmit() {
-    addLogMessage(LogMessage(
-        "Manually submitted location", "",
+    addLogMessage(LogMessage("Manually submitted location", "",
         icon: Icons.add_task, level: 1));
-    _rest.processManualSubmit(_deviceId).then((value) => handlePlacePhase());
+    _rest
+        .processManualSubmit(deviceId.toString())
+        .then((value) => handlePlacePhase());
   }
 
   void reloadMap() {
@@ -149,8 +160,8 @@ class LocationModel with ChangeNotifier {
     _rest.updatePhase(_deviceId, "20").then((value) => _handlePlacePhase());
   }
 
-  void bumpFromAdmin() {
-    Team team = _rest.getTeamByDeviceId(_deviceId);
+  void bumpFromAdmin() async {
+    Team team = await _rest.getTeamByDeviceId(_deviceId);
     Phase phase = team.phase;
     player.play(AssetSource('kei.m4a'));
     _rest
@@ -160,10 +171,10 @@ class LocationModel with ChangeNotifier {
 
   void handleCode(code) {
     print('[p319] code processing');
-    if(code == 'stopkiosk') {
+    if (code == 'stopkiosk') {
       stopKioskMode();
     }
-    if(code == 'upupdowndownleftrightleftrightba') {
+    if (code == 'upupdowndownleftrightleftrightba') {
       _rest.processCode(_deviceId, code).then((value) => handlePlacePhase());
     }
     _rest.processCode(_deviceId, code).then((value) => handlePlacePhase());
@@ -181,41 +192,41 @@ class LocationModel with ChangeNotifier {
   }
 
   void setMapTypeFromPhase(Phase phase) {
-      if(phase.mapType == 'none') {
-        _mapType = MapType.none;
-      }
-      if(phase.mapType == 'normal') {
-        _mapType = MapType.normal;
-      }
-      if(phase.mapType == 'hybrid') {
-        _mapType = MapType.hybrid;
-      }
-      if(phase.isoMode != null) {
-        _iso = ! !phase.isoMode;
-      }
+    if (phase.mapType == 'none') {
+      _mapType = MapType.none;
+    }
+    if (phase.mapType == 'normal') {
+      _mapType = MapType.normal;
+    }
+    if (phase.mapType == 'hybrid') {
+      _mapType = MapType.hybrid;
+    }
+    if (phase.isoMode != null) {
+      _iso = !!phase.isoMode;
+    }
   }
 
   void _handlePlacePhase() async {
-
-    await _rest.fetchTeams();
-    Team team = _rest.getTeamByDeviceId(_deviceId);
-    if(team.phase != null) {
+    await _removeEverything();
+    Team team = await _rest.getTeamByDeviceId(_deviceId);
+    if (team != null && team.phase != null) {
       _currentPhaseId = team.phase.id;
     }
 
-    await _removeEverything();
-    if(team.phase != null && team.phase.marker != '0') {
+    if (team != null && team.phase != null && team.phase.marker != '0') {
       Phase phase = team.phase;
+      _currentPhase = phase;
+
       print('c1001' + phase.marker + ' ' + phase.range.toString());
       setMapTypeFromPhase(phase);
 
-      if(phase.marker != 'hidden') {
+      if (phase.marker != 'hidden') {
         addMarker(phase.id, phase.lat, phase.lng);
       }
-      if(phase.range.toInt() > 0) {
+      if (phase.range.toInt() > 0) {
         _placeGeofenseFromPhase(phase);
         print('c1111 placing circle ' + phase.marker);
-        if(phase.marker == 'circle') {
+        if (phase.marker == 'circle') {
           print('c1112 placing circle for real');
           _placeCircleFromPhase(phase);
         }
@@ -224,38 +235,39 @@ class LocationModel with ChangeNotifier {
     }
     notifyListeners();
   }
-  void _placeCircleFromPhase(Phase phase) {
-      PhaseConfigCircle pcc;
-      Color fill = Color(0x339911BB);
-      Color stroke = Color(0xAA1111BB);
-      int strokeSize = 3;
 
-      if(phase.config != null && phase.config.circle != null) {
-        pcc = phase.config.circle;
-        if(pcc.stroke != null) {
-          if(pcc.stroke.color != null) {
-            stroke = HexColor(pcc.stroke.color);
-          }
-          if(pcc.stroke.size != null) {
-            strokeSize = pcc.stroke.size;
-          }
+  void _placeCircleFromPhase(Phase phase) {
+    PhaseConfigCircle pcc;
+    Color fill = Color(0x33003380);
+    Color stroke = Color(0xFF003380);
+    int strokeSize = 3;
+
+    if (phase.config != null && phase.config.circle != null) {
+      pcc = phase.config.circle;
+      if (pcc.stroke != null) {
+        if (pcc.stroke.color != null) {
+          stroke = HexColor(pcc.stroke.color);
         }
-        if(pcc.color != null) {
-          fill = HexColor(pcc.color);
+        if (pcc.stroke.size != null) {
+          strokeSize = pcc.stroke.size;
         }
       }
+      if (pcc.color != null) {
+        fill = HexColor(pcc.color);
+      }
+    }
 
-      Circle c = Circle(
-          circleId: CircleId(phase.id.toString()),
-          fillColor: fill,
-          strokeWidth: strokeSize,
-          strokeColor: stroke,
-          center: LatLng(phase.lat, phase.lng),
-          radius: phase.range
-      );
+    Circle c = Circle(
+        circleId: CircleId(phase.id.toString()),
+        fillColor: fill,
+        strokeWidth: strokeSize,
+        strokeColor: stroke,
+        center: LatLng(phase.lat, phase.lng),
+        radius: phase.range);
 
-      _soc.add(c);
+    _soc.add(c);
   }
+
   void _placeGeofenseFromPhase(Phase phase) {
     location = Geolocation(
         latitude: phase.lat,
@@ -263,19 +275,20 @@ class LocationModel with ChangeNotifier {
         radius: phase.range,
         id: "Phase-" + phase.id.toString());
 
-      print( "[l123]" + location.toString());
-      Geofence.addGeolocation(location, GeolocationEvent.entry).then((onValue) {
-          // if(phase.id != currentPhaseId) {
-            addLogMessage(LogMessage(
-                "Added a new location ${phase.id}", phase.message,
-                icon: Icons.add_task, level: 1));
-          // }
-      }).catchError((onError) {
-        print("great failure");
-      });
+    print("[l123]" + location.toString());
+    Geofence.addGeolocation(location, GeolocationEvent.entry).then((onValue) {
+      // if(phase.id != currentPhaseId) {
+      addLogMessage(LogMessage(
+          "Added a new location ${phase.id}", phase.message,
+          icon: Icons.add_task, level: 1));
+      // }
+    }).catchError((onError) {
+      print("great failure");
+    });
 
     Geofence.startListening(GeolocationEvent.entry, (entry) {
-      addLogMessage(LogMessage("Entered geofence", "You entered ${entry.id}", level: 1));
+      addLogMessage(
+          LogMessage("Entered geofence", "You entered ${entry.id}", level: 1));
       player.play(AssetSource('sounds/kei.m4a'));
       _rest
           .updatePhase(_deviceId, entry.id)
@@ -376,7 +389,7 @@ class LocationModel with ChangeNotifier {
   }
 
   _onMarkerTapped(MarkerId markerId) {
-    _destinationMarkers.remove(markerId);
+    // _destinationMarkers.remove(markerId);s
     _updateCamera();
     notifyListeners();
   }
@@ -467,19 +480,20 @@ class LocationModel with ChangeNotifier {
   void _updateCamera() async {
     List<LatLng> list = [];
     Map<MarkerId, Marker> _ckers = getAllMarkers();
-    if(_mapVisible) {
+    if (_mapVisible) {
       if (_ckers.length > 0) {
         _ckers.forEach((k, v) {
           list.add(LatLng(v.position.latitude, v.position.longitude));
         });
-            controller.getVisibleRegion().then((f) {
-              controller.animateCamera(
-                  CameraUpdate.newLatLngBounds(boundsFromLatLngList(list), 50));
-            });
-        } else {
-          print("Controller is null");
-        }
+        // if(list.length > 1) {
+        controller.getVisibleRegion().then((f) {
+          controller.animateCamera(
+              CameraUpdate.newLatLngBounds(boundsFromLatLngList(list), 50));
+        });
+        // }
+      } else {
+        print("Controller is null");
       }
     }
   }
-
+}

@@ -3,6 +3,7 @@ import "./PhaseConfig.dart";
 class Phase {
   final int id;
   final String code;
+  final String name;
   final String marker;
   final String message;
   final bool isoMode;
@@ -15,6 +16,7 @@ class Phase {
   Phase(
       {this.id,
       this.code,
+      this.name,
       this.message,
       this.lat,
       this.mapType,
@@ -33,10 +35,11 @@ class Phase {
     return Phase(
         id: json['id'],
         mapType: json['mapType'],
+        name: json['name'],
         code: json['code'],
         message: json['message'],
-        lat: json['lat'],
-        lng: json['lng'],
+        lat: json['lat'].toDouble(),
+        lng: json['lng'].toDouble(),
         marker: json['marker'],
         isoMode: json['isoMode'],
         range: json['range'].toDouble(),

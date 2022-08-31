@@ -11,7 +11,6 @@ import 'package:kiosk_mode/kiosk_mode.dart';
 
 import './pages/admin.dart';
 import './pages/map.dart';
-import './pages/stand.dart';
 import './pages/test.dart';
 import './pages/event.dart';
 import './pages/code.dart';
@@ -38,6 +37,8 @@ void main() async {
   // submitted as expected. It is not intended to be used for everyday
   // development.
   WidgetsFlutterBinding.ensureInitialized();
+  DeviceInfo _deviceInfo = new DeviceInfo();
+  await _deviceInfo.fetchInfo();
   setupLocator();
   await dotenv.load(fileName: ".env");
   await Firebase.initializeApp();
@@ -77,11 +78,9 @@ class LustrumApp extends StatefulWidget {
 }
 
 class _LustrumAppState extends State<LustrumApp> with WidgetsBindingObserver {
-  int _counter = 0;
-  final DeviceInfo device = DeviceInfo();
-  final GlobalKey<MapPageState> _mapPageState = GlobalKey<MapPageState>();
   Rest rest;
   LocationModel _locationModel;
+  FcmModel _fcmModel;
   MapPage page;
 
   @override
@@ -94,13 +93,17 @@ class _LustrumAppState extends State<LustrumApp> with WidgetsBindingObserver {
   }
 
   void createInstance() {
-    print("c001 createinstance was run");
-    page = MapPage(
-      key: _mapPageState,
-    );
+    // GlobalKey<MapPageState> _mapPageState = GlobalKey<MapPageState>();
+    //
+    // print("c001 createinstance was run");
+    // page = MapPage(
+    //   key: _mapPageState,
+    // );
     rest = Rest();
-    // SocketHelper socket = SocketHelper();
-    _locationModel = LocationModel(device, rest);
+    rest.fetchTeams();
+
+    _locationModel = LocationModel();
+    _fcmModel = FcmModel();
   }
 
   @override
@@ -123,8 +126,7 @@ class _LustrumAppState extends State<LustrumApp> with WidgetsBindingObserver {
     }
   }
 
-  Widget build (BuildContext context) {
-    rest.fetchTeams();
+  Widget build(BuildContext context) {
     // void _listenToNfcTags(_mapPageState) {
     //   print('Starting to listen NEW PLACE!!');
     //   NfcManager.instance.startSession(onDiscovered: (NfcTag tag) async {
@@ -144,28 +146,41 @@ class _LustrumAppState extends State<LustrumApp> with WidgetsBindingObserver {
 
     // _listenToNfcTags(_mapPageState);
 
+    Map<int, Color> color = {
+      50: Color.fromRGBO(00, 33, 80, .1),
+      100: Color.fromRGBO(00, 33, 80, .2),
+      200: Color.fromRGBO(00, 33, 80, .3),
+      300: Color.fromRGBO(00, 33, 80, .4),
+      400: Color.fromRGBO(00, 33, 80, .5),
+      500: Color.fromRGBO(00, 33, 80, .6),
+      600: Color.fromRGBO(00, 33, 80, .7),
+      700: Color.fromRGBO(00, 33, 80, .8),
+      800: Color.fromRGBO(00, 33, 80, .9),
+      900: Color.fromRGBO(00, 33, 80, 1),
+    };
+
+    MaterialColor colorCustom = MaterialColor(0xFF003380, color);
     return MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (context) => AltModel(rest)),
           ChangeNotifierProvider(create: (context) => _locationModel),
           ChangeNotifierProvider(create: (context) => ScoreModel()),
-          ChangeNotifierProvider(create: (context) => FcmModel()),
+          ChangeNotifierProvider(create: (context) => _fcmModel),
         ],
         child: MaterialApp(
+            debugShowCheckedModeBanner: false,
             title: 'HD The Grand Tour 2022',
             navigatorKey: locator<NavigationService>().navigatorKey,
             theme: ThemeData(
               // This is the theme of your application.
-              primarySwatch: Colors.blue,
+              primarySwatch: colorCustom,
+              fontFamily: 'gt',
             ),
             // builder: (context, widget) => LustrumScaffold(body: widget),
-            initialRoute: '/map',
+            initialRoute: '/',
             routes: {
-              '/map': (context) => openPage(
-                  context, page, true
-                  ),
-              '/admin': (context) => openPage(context, AdminPage(),false),
-              '/stand': (context) => openPage(context, StandPage(), false),
+              '/': (context) => openPage(context, MapPage(), true),
+              '/admin': (context) => openPage(context, AdminPage(), false),
               '/log': (context) => openPage(context, LogPage(), false),
               '/test': (context) => openPage(context, TestPage(), false),
               '/event': (context) => openPage(context, EventPage(), false),
@@ -175,7 +190,7 @@ class _LustrumAppState extends State<LustrumApp> with WidgetsBindingObserver {
 
   Widget openPage(context, Widget page, bool atMap) {
     _locationModel.setMapVisible(atMap);
-    if(atMap) {
+    if (atMap) {
       _locationModel.handlePlacePhase();
     }
     print('Dispose controller called.. c13');

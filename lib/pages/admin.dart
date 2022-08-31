@@ -7,6 +7,7 @@ import "../widgets/menu.dart";
 import '../providers/alt.dart';
 import '../providers/location.dart';
 import "../classes/Team.dart";
+import "../widgets/PushForm.dart";
 
 class AdminPage extends StatefulWidget {
   static const String routeName = '/admin';
@@ -41,71 +42,9 @@ class AdminPageState extends State<AdminPage> {
                 Center(child: TeamDropdown()),
                 Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
-                    child: new Row(
-                        mainAxisSize: MainAxisSize.min, // This is the magic. :)
-                        children: <Widget>[
-                          new Expanded(
-                              child: RaisedButton(
-                            padding: const EdgeInsets.all(8.0),
-                            textColor: Colors.white,
-                            color: Colors.blue,
-                            onPressed: () {
-                              model.bumpFromAdmin();
-                            }, // Button onClick function
-                            child: new Text("BP"),
-                          )),
-                          new Expanded(
-                              child: new RaisedButton(
-                            onPressed: () {
-                              model.clearLog();
-                            },
-                            textColor: Colors.white,
-                            color: Colors.black,
-                            padding: const EdgeInsets.all(8.0),
-                            child: new Text(
-                              "CL",
-                            ),
-                          )),
-                          new Expanded(
-                              child: new RaisedButton(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(snackBar);
-                            },
-                            textColor: Colors.white,
-                            color: Colors.red,
-                            padding: const EdgeInsets.all(8.0),
-                            child: new Text(
-                              "Snack 3",
-                            ),
-                          )),
-                          new Expanded(
-                              child: new RaisedButton(
-                            onPressed: () =>
-                                (FirebaseCrashlytics.instance.crash()),
-                            textColor: Colors.white,
-                            color: Colors.red,
-                            padding: const EdgeInsets.all(8.0),
-                            child: new Text(
-                              "Crash",
-                            ),
-                          ))
-                        ],
-                      )
-                    ),
-                Row(children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                      child: SingleChildScrollView(
-                          //scrollable Text - > wrap in SingleChildScrollView -> wrap that in Expanded
-                          scrollDirection: Axis.vertical,
-                          child: Text("outofoffice",
-                                  style: TextStyle(fontSize: 10),
-                                  overflow: TextOverflow.visible)
-                      )
+                    child:  PushForm()
                   )
-                ])
-              ],
+                ]
             );
          })
       )
