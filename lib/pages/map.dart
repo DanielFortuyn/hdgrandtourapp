@@ -153,11 +153,11 @@ class MapPageState extends State<MapPage> {
           body: Consumer<LocationModel>(builder: (context, model, child) {
             return renderStack(context, fcm, model);
           }),
-          // floatingActionButton:
-          //     Consumer<LocationModel>(builder: (context, model, child) {
-          //   return FloatingActionButton.extended(
-          //       onPressed: model.toggleIso, label: Icon(Icons.directions_boat));
-          // }),
+          floatingActionButton:
+              Consumer<LocationModel>(builder: (context, model, child) {
+            return FloatingActionButton.extended(
+                onPressed: model.toggleIso, label: Icon(Icons.directions_boat));
+          }),
         ),
         onLongPress: () {});
   }

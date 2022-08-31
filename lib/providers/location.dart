@@ -89,7 +89,6 @@ class LocationModel with ChangeNotifier {
     init();
   }
 
-
   void init() {
     _rest = new Rest();
     final DeviceInfo _deviceInfo = DeviceInfo();
@@ -111,6 +110,8 @@ class LocationModel with ChangeNotifier {
 
     _socket.socket.emit('get.location.update', jsonEncode({"hdh": "10"}));
     sendGetLocationTimer = setGetLocationTimer();
+
+    _socket.socket.on('refresh', (jsonData) => _handleRefresh(jsonData));
 
     locationSettings = AndroidSettings(
         accuracy: LocationAccuracy.best,
@@ -416,6 +417,14 @@ class LocationModel with ChangeNotifier {
       _teamLocations.add(_tl);
     });
     _updateMarkers();
+  }
+
+  void _handleRefresh(jsonData) {
+    print('R001 Got refresh..: ' + jsonData.toString());
+    if (jsonData.deviceId != null && jsonData.deviceId.deviceId.toString() == _deviceId) {
+      player.play(AssetSource('sounds/ktis.m4a'));
+      this._handlePlacePhase();
+    }
   }
 
   void _updateMarkers() async {

@@ -1,16 +1,15 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import "../helpers/dio.dart";
 import "../classes/Team.dart";
 import 'package:audioplayers/audioplayers.dart';
-
 
 class Rest {
   int i = 0;
   final player = AudioPlayer();
   List<Team> _teams;
   List<Team> get teams => _teams;
-
 
   static final Rest _singleton = Rest._internal();
   factory Rest() => _singleton;
@@ -23,11 +22,12 @@ class Rest {
       _teams = r;
     });
   }
+
   void errorMusic() {
     i++;
-    if(i % 3 == 0) {
-      if(i % 9 == 0) {
-        if(i % 27 == 0) {
+    if (i % 3 == 0) {
+      if (i % 9 == 0) {
+        if (i % 27 == 0) {
           player.play(AssetSource('sounds/aishort.m4a'));
         } else {
           player.play(AssetSource('sounds/ngshort.m4a'));
@@ -43,21 +43,34 @@ class Rest {
   Future<Team> updatePhase(String deviceId, String entryId) async {
     print("[p104] bumping phase");
     try {
-      await dio.post(
-          '/bumpphase', data: {'deviceId': deviceId, 'entryId': entryId});
-    } on DioError catch(e) {
+      await dio
+          .post('/bumpphase', data: {'deviceId': deviceId, 'entryId': entryId});
+    } on DioError catch (e) {
       print('[update phase error]');
     }
+  }
+
+  void backgroundRefresh(String deviceId) async {
+    BaseOptions options = new BaseOptions(
+      baseUrl: dotenv.env['BACKEND_URL'],
+      // connectTimeout: 5000,
+      // receiveTimeout: 3000,
+    );
+
+    Dio dio = new Dio(options);
+    print('R004 Doing background refresh');
+    await dio.post('/refresh', data: { 'deviceId': deviceId });
   }
 
   Future<Team> processCode(String deviceId, String code) async {
     print("[p104] process code phase");
     try {
-      var result = await dio.post('/code', data: {'deviceId': deviceId, 'code': code});
-      if(result.statusCode == 204 || result.statusCode == 200) {
+      var result =
+          await dio.post('/code', data: {'deviceId': deviceId, 'code': code});
+      if (result.statusCode == 204 || result.statusCode == 200) {
         player.play(AssetSource('sounds/kei.m4a'));
       }
-      if(result.statusCode == 202) {
+      if (result.statusCode == 202) {
         player.play(AssetSource('sounds/wwww.m4a'));
       }
     } on DioError catch (e) {
@@ -65,11 +78,12 @@ class Rest {
     }
     return null;
   }
+
   Future<Team> processManualSubmit(String deviceId) async {
     print("[p104] process code phase");
     try {
-      var result = await dio.post('/manual', data: {'deviceId': deviceId });
-      if(result.statusCode == 204 || result.statusCode == 200) {
+      var result = await dio.post('/manual', data: {'deviceId': deviceId});
+      if (result.statusCode == 204 || result.statusCode == 200) {
         print("[a] playing keigoed");
         player.play(AssetSource('sounds/kei.m4a'));
       }
@@ -88,9 +102,11 @@ class Rest {
 
   Future<Team> getTeamByDeviceId(String deviceId) async {
     _teams = await this.fetchTeams();
-    for (var i = 0; i < _teams.length; i++) {
-      if (_teams[i].deviceId == deviceId) {
-        return _teams[i];
+    if (teams != null) {
+      for (var i = 0; i < _teams.length; i++) {
+        if (_teams[i].deviceId == deviceId) {
+          return _teams[i];
+        }
       }
     }
     return null;

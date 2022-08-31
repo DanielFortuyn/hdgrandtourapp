@@ -32,8 +32,10 @@ class LogPageState extends State<LogPage> {
 
 List<Widget> messageStream(List<LogMessage> logMessages) {
   List<Widget> list = [];
-  for (var i = 0; i < logMessages.length; i++) {
-    list.add(logCard(logMessages[i]));
+  if (logMessages != null) {
+    for (var i = 0; i < logMessages.length; i++) {
+      list.add(logCard(logMessages[i]));
+    }
   }
   return list;
 }
@@ -65,17 +67,16 @@ List<Widget> getCardContents(_logMessage) {
 
 Widget logCard(LogMessage logMessage) {
   Color shadowColor = new Color(0x999999FF);
-  if(logMessage.level != 0) {
+  if (logMessage.level != 0) {
     shadowColor = new Color(0xFFCCCCCC);
   }
   return Card(
-    clipBehavior: Clip.antiAlias,
-    child: Column(
-      children: getCardContents(logMessage),
-    ),
-    color: shadowColor,
-    shadowColor: shadowColor
-  );
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: getCardContents(logMessage),
+      ),
+      color: shadowColor,
+      shadowColor: shadowColor);
 }
 
 /// UI Widget for displaying metadata.

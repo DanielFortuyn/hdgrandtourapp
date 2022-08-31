@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:lustrum/classes/LogMessage.dart';
 import 'package:lustrum/helpers/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:lustrum/providers/location.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
@@ -16,11 +16,19 @@ import 'package:device_info/device_info.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:audioplayers/audioplayers.dart';
 
+import "../helpers/rest.dart";
+
 // import 'package:lustrum/widgets/CustomDialog.dart';
 import '../helpers/device.dart';
 
 Future<dynamic> otherHandler(RemoteMessage message) async {
   print('Background message received');
+  await dotenv.load(fileName: ".env");
+  DeviceInfo deviceInfo = DeviceInfo();
+  await deviceInfo.fetchInfo();
+
+  Rest rest = Rest();
+  rest.backgroundRefresh(deviceInfo.deviceId);
 }
 
 class FcmModel with ChangeNotifier {
@@ -57,12 +65,12 @@ class FcmModel with ChangeNotifier {
   }
 
   void subscribeToTopics() async {
-     await _deviceInfo.fetchInfo();
+    await _deviceInfo.fetchInfo();
 
-      var topic = 'device.' + _deviceInfo.deviceId.toString();
-      print(topic);
-      _fcm.subscribeToTopic(topic);
-      _fcm.subscribeToTopic('updates');
+    var topic = 'device.' + _deviceInfo.deviceId.toString();
+    print(topic);
+    _fcm.subscribeToTopic(topic);
+    _fcm.subscribeToTopic('updates');
   }
 
   void registerHandlers() {
@@ -77,10 +85,10 @@ class FcmModel with ChangeNotifier {
     // );
   }
 
-
   Future<dynamic> onMessageHandler(RemoteMessage message) async {
     final player = AudioPlayer();
-    print('=-=-= GOT A MESSAGExsdad -=-=-=......................................................................');
+    print(
+        '=-=-= GOT A MESSAGExsdad -=-=-=......................................................................');
     _navigationService.navigateTo('/');
     print("onMessage: $message");
     debugPrint("On resume fired $message");
@@ -92,12 +100,11 @@ class FcmModel with ChangeNotifier {
     // doShowDialog(message);
   }
 
-
   LogMessage logMessageFromNotification(RemoteMessage message) {
     String title = 'New push message';
     String description = 'received';
 
-    if(message.data != null) {
+    if (message.data != null) {
       print('[n001]' + message.data.toString());
       title = message.data['dialog.title'].toString();
       description = message.data['dialog.content'].toString();
@@ -121,7 +128,6 @@ class FcmModel with ChangeNotifier {
     // _lcm.addWithCoordsMarker('Jantje', getLatLngFromMsg(message));
     _lcm.reloadMap();
     doShowDialog(message);
-
   }
 
   LatLng getLatLngFromMsg(message) {
